@@ -1,0 +1,1 @@
+pyinstaller -w --distpath=. -F ..\Main\AptioSystemReagent.py
