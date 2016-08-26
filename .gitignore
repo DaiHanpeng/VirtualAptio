@@ -3,3 +3,6 @@
 *.txt
 *.spec
 build
+/ControlLogFiles
+/Log
+/MQTT
