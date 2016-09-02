@@ -10,6 +10,9 @@ from ..FlagInfo.SampleFlagInfo import *
 from ..Logging.LoggingConfig import project_logger
 from .TimingScanner import TimingScanner
 from ..TestMapParser.TestMapParser import AptioTestMap
+from ..QcRerunInfoParser.MsSqlRerunInfoParser import MsSqlQcRerunInfoProcessor, MsSqlQcRerunInfoTimingProcessor
+from ..CriticalValueParser.CriticalValueParser import CriticalValueTimingParser
+from ..Mqtt.MqttInterface import MqttInterface
 
 PARAMETER_INI_FILE = os.path.abspath('..')+'\\Config'+"\\Parameters.CFG"
 COMMUNICATION_SECTION_NAME = "Communication"
@@ -28,7 +31,6 @@ REAGENT_FLAG_GREEN = 'Green'
 REAGENT_FLAG_YELLOW = 'Yellow'
 REAGENT_FLAG_RED = 'Red'
 
-
 class ReagentTimingScanner(ControlFileScanner,AptioSystemReagentDialog):
     update_gui_signal = pyqtSignal(AptioReagentInfo)
     def __init__(self):
@@ -40,6 +42,7 @@ class ReagentTimingScanner(ControlFileScanner,AptioSystemReagentDialog):
         self.reagent_flag_green = 'G'
         self.reagent_flag_yellow = 'Y'
         self.reagent_flag_red = 'R'
+
         self.load_communication_parameters_from_config_file()
         self.astm_client = AstmThreadedClientManager.get_astm_client()
         self.test_map_info = AptioTestMap()
@@ -53,6 +56,12 @@ class ReagentTimingScanner(ControlFileScanner,AptioSystemReagentDialog):
         # start another timing scheduler to scan sample in-labbing position.
         self.sample_inlabbing_timing_scanner = TimingScanner()
 
+        #start timing scheduler to scan qc rerun message
+        self.qc_rerun_info_processor = MsSqlQcRerunInfoTimingProcessor()
+
+        # critical parser
+        self.critical_parser = CriticalValueTimingParser()
+
         #self.connect(self.ui.gridLayout,QtCore.SIGNAL("destroyed()"),self,QtCore.SLOT("on_window_destroyed()"))
         #self.ui.treeWidget.destroyed.connect(self.on_window_destroyed)
 
@@ -63,6 +72,8 @@ class ReagentTimingScanner(ControlFileScanner,AptioSystemReagentDialog):
     def on_window_destroyed(self):
         self.timer.cancel()
         self.sample_inlabbing_timing_scanner.cancel_timer()
+        self.qc_rerun_info_processor.cancel_timer()
+        self.critical_parser.cancel_timer()
 
     def closeEvent(self, QCloseEvent):
         self.on_window_destroyed()
@@ -92,6 +103,9 @@ class ReagentTimingScanner(ControlFileScanner,AptioSystemReagentDialog):
         #send flag to Centralink System.
         self.send_flag_info()
 
+        #send mqtt notification
+        self.send_mqtt_message()
+
         self.timer = Timer(FILE_SCAN_INTERVAL,self.timing_exec_func)
 
         self.timer.start()
@@ -108,6 +122,24 @@ class ReagentTimingScanner(ControlFileScanner,AptioSystemReagentDialog):
             print sample_flag_info
             project_logger.write_log_message(str(sample_flag_info))
         #self.astm_client.trigger_a_sending()
+
+    def send_mqtt_message(self):
+        for sample_flag_info in self.sample_flag_info_list:
+            if isinstance(sample_flag_info,SampleFlagInfo):
+                topic = 'mqtt'
+                flag = 'GREEN'
+                if self.reagent_flag_red == sample_flag_info.flag:
+                    flag = 'RED'
+                elif self.reagent_flag_yellow == sample_flag_info.flag:
+                    flag = 'YELLOW'
+                payload = 'reagent,'+sample_flag_info.sample_id+','+sample_flag_info.Description+','+\
+                          flag+','+sample_flag_info.time_stamp
+                #only yellow and red flags will be published.
+                if self.reagent_flag_green <> sample_flag_info.flag:
+                    MqttInterface.publish(topic,payload)
+                    message = 'topic: '+topic+", payload: "+payload+' published'
+                    print message
+                    project_logger.write_log_message(message)
 
     def reagent_status_2_flag(self,reagent_status):
         flag = 'undefined'
@@ -147,16 +179,19 @@ class ReagentTimingScanner(ControlFileScanner,AptioSystemReagentDialog):
     def load_communication_parameters_from_config_file(self):
         config_parser = ConfigParser.ConfigParser()
         config_parser.read(PARAMETER_INI_FILE)
+
         if config_parser.has_section(COMMUNICATION_SECTION_NAME):
             #self.host_address = config_parser.get(COMMUNICATION_SECTION_NAME,HOST_ADDRESS)
             #self.connect_port = config_parser.getint(COMMUNICATION_SECTION_NAME,CONNECT_PORT)
             self.control_folder = config_parser.get(COMMUNICATION_SECTION_NAME, FLEXLAB36_CONTROL_FOLDER_PATH)
             self.test_map_ini_file_path = config_parser.get(COMMUNICATION_SECTION_NAME,TEST_MAP_INI_FILE_PATH)
+
         if config_parser.has_section(INSTRUMENT_MAPPING_SECTION):
             instrument_mapping_list = config_parser.items(INSTRUMENT_MAPPING_SECTION)
             if instrument_mapping_list:
                 for item in instrument_mapping_list:
                     self.instrument_mapping[item[0]] = item[1]
+
         if config_parser.has_section(REAGENT_FLAG_SECTION):
             self.reagent_flag_green = config_parser.get(REAGENT_FLAG_SECTION,REAGENT_FLAG_GREEN)
             self.reagent_flag_yellow = config_parser.get(REAGENT_FLAG_SECTION,REAGENT_FLAG_YELLOW)

@@ -125,7 +125,6 @@ class QcRerunInfoMqttPublisher():
     def publish(self,rerun_info_list):
         if isinstance(rerun_info_list,list) and len(rerun_info_list) > 0:
             for info in rerun_info_list:
-                time.sleep(10)
                 if isinstance(info,QcRerunInfo):
                     topic = 'clark'
                     payload = ','.join([info.creation_time,info.lot,info.instrument])+','+','.join(str(test) for test in info.test_list)

@@ -12,6 +12,10 @@ sys.path.append(os.path.abspath('..'))
 from modules.ControlFileScanner.ReagentTimingScanner import *
 import threading
 
+# for bug fix in pyinstaller...
+import _mssql,decimal,uuid 
+
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     reagent_scanner = ReagentTimingScanner()

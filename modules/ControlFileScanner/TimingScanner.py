@@ -12,7 +12,7 @@ HOST_ADDRESS = "Host Address"
 CONNECT_PORT = "Connect Port"
 FLEXLAB36_CONTROL_FOLDER_PATH = "Flexlab36 Control Folder Path"
 
-FILE_SCAN_INTERVAL = 10 # scan control log file time interval in seconds
+FILE_SCAN_INTERVAL = 20 # scan control log file time interval in seconds
 
 
 class TimingScanner(ControlFileScanner):
