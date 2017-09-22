@@ -13,7 +13,7 @@ from modules.ControlFileScanner.ReagentTimingScanner import *
 import threading
 
 # for bug fix in pyinstaller...
-import _mssql,decimal,uuid 
+#import _mssql,decimal,uuid
 
 
 if __name__ == '__main__':

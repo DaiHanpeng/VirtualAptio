@@ -31,6 +31,7 @@ class GetLatestFile():
         latest_modified_file = ''
         for f in filted_file_list:
             if os.path.getmtime(f) > max_file_modified_time:
+                print os.path.getmtime(f)
                 latest_modified_file = f
                 max_file_modified_time = os.path.getmtime(f)
 
@@ -39,8 +40,8 @@ class GetLatestFile():
 
 def test():
     #print GetLatestFile.get_latest_file('.')
-    path_to_log_folder = r'D:\01_Automation\23_Experiential_Conclusions_2016\05_DaAn\A002\DATA'
-    print GetLatestFile.get_latest_file(path_to_log_folder,'','.MTD')
+    path_to_log_folder = r'D:\01_Automation\23_Experiential_Conclusions_2016\23_Zhongshan'
+    print GetLatestFile.get_latest_file(path_to_log_folder,'','.txt')
     #print GetLatestFile.get_latest_file(path_to_log_folder)
 
 if __name__ == '__main__':

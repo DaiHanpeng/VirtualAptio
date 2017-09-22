@@ -46,11 +46,19 @@ class AstmThreadedClient(object):
             self.port = config_parser.getint(COMMUNICATION_SECTION_NAME,CONNECT_PORT)
 
     def connect(self):
-        try:
-            self.tcp_client_socket.connect((self.host_address, int(self.port)))
-        except Exception as e:
-            project_logger.write_log_message(e)
-            project_logger.write_log_message("connect to host:" + str(self.host_address) + "  port:" + str(self.port) + "  failed!")
+        while True:
+            flag = True
+            try:
+                self.tcp_client_socket.connect((self.host_address, int(self.port)))
+            except Exception as e:
+                project_logger.write_log_message(e)
+                if flag:
+                    project_logger.write_log_message("connect to host:" + str(self.host_address) + "  port:" + str(self.port) + "  failed!")
+                    self.close()
+                    flag = False
+                #try to reconnect every 10 seconds if socket connect failed!
+                time.sleep(10)
+        project_logger.write_log_message("connected to host:" + str(self.host_address) + "  port:" + str(self.port) + "  OK now!")
 
     def close(self):
         self.tcp_client_socket.close()
@@ -100,10 +108,16 @@ class AstmThreadedClient(object):
 
     def trigger_a_sending(self):
         if len(self.message_sending_buffer) < 7 and self.message_sending_buffer[0] == ASTM_ENQ:
-            self.tcp_client_socket.send(self.message_sending_buffer.pop(0))
-            project_logger.write_log_message("message sent via trigger: " + ASTM_ENQ)
-            print  'message sent via trigger --- <ENQ>'
-            time.sleep(0.1)
+            if self.tcp_client_socket.send(self.message_sending_buffer.pop(0)):
+                project_logger.write_log_message("message sent via trigger: " + ASTM_ENQ)
+                print  'message sent via trigger --- <ENQ>'
+                time.sleep(0.1)
+            else:
+                project_logger.write_log_message('message sent failed!')
+                self.connect()
+        else:
+            project_logger.write_log_message('message buffer is not empty, message will be sent in queue.')
+            project_logger.write_log_message(self.message_sending_buffer)
 
 
     def push_enq_into_sending_buffer(self):
